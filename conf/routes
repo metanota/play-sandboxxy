@@ -1,0 +1,19 @@
+# Routes
+# This file defines all application routes (Higher priority routes first)
+# ~~~~
+
+GET     /token                      controllers.Application.token(user_id: Long, secret)
+
+POST    /link                       controllers.Application.postLink
+
+POST    /link/:code                 controllers.Application.postCode(code)
+
+GET     /link/:code                 controllers.Application.getCode(code, token)
+
+GET     /folder/:id                 controllers.Application.getFolderId(id: Long, token, offset: Option[Int] ?= Some(0), limit: Option[String] ?= Some("const"))
+
+GET     /link                       controllers.Application.getLink(token, offset: Option[Int] ?= Some(0), limit: Option[String] ?= Some("const"))
+
+GET     /folder                     controllers.Application.getFolder(token)
+
+GET     /link/:code/clicks          controllers.Application.getClicks(code, token, offset: Int, limit)
