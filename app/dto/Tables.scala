@@ -1,4 +1,4 @@
-package dao
+package dto
 
 import scala.slick.driver.PostgresDriver.simple._
 

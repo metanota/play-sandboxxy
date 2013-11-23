@@ -6,7 +6,7 @@ import Database.threadLocalSession
 import play.api.Application
 import play.api.Play.current
 
-import dao._
+import dto._
 import scala.slick.jdbc.meta.MTable
 
 /**

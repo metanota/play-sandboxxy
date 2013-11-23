@@ -10,7 +10,7 @@ import play.api.Play.current
 import scala.slick.driver.PostgresDriver.simple._
 import Database.threadLocalSession
 
-import dao._
+import dto._
 import utils.{Security => S}
 import scala.util.Try
 

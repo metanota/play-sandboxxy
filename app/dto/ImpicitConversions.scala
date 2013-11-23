@@ -1,4 +1,4 @@
-package dao
+package dto
 
 import scala.slick.lifted.TypeMapper
 import java.net.InetAddress
