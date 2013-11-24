@@ -1,6 +1,5 @@
 package controllers
 
-import play.api._
 import play.api.db._
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
@@ -10,16 +9,22 @@ import play.api.Play.current
 import scala.slick.driver.PostgresDriver.simple._
 import Database.threadLocalSession
 
+import dao._
 import dto._
 import utils.{Security => S}
 import scala.util.Try
 
-import java.sql.Timestamp
 import java.net.InetAddress
+import java.sql.Timestamp
 
 object Application extends Controller {
 
-  lazy val db = Database.forDataSource(DB.getDataSource())
+  val db = Database.forDataSource(DB.getDataSource())
+
+  val clickDao  = new ClickDao
+  val folderDao = new FolderDao
+  val linkDao   = new LinkDao
+  val userDao   = new UserDao
 
   implicit val TwoStringsReader = (
     (__ \ 'token).read[String] and
@@ -30,45 +35,31 @@ object Application extends Controller {
     if (!S.authUser(secret)) {
       BadRequest(Json.toJson("User's secret doesn't fit :)"))
     }
-
-    db withSession {
-      val user = ( for {
-        u <- User if u.id === user_id
-      } yield u.token).firstOption
-
-      val token = user getOrElse {
+    db withTransaction {
+      val user = userDao.getById(user_id)
+      val token = user map (_.token) getOrElse {
         val token = S.generateToken
-        User.autoInc.insert(token)
+        userDao.create(token)
         token
       }
-
       Ok(Json.toJson(token))
     }
   }
 
-  // greatly overloaded
   def postLink = Action(parse.json) { request =>
     request.body.validate[(String, String)].map { case (token, url) =>
       val code     = (request.body \ "code")     .asOpt[String]
       val folderId = (request.body \ "folder_id").asOpt[Long]
-      db withSession {
-        val user = (for {
-          u <- User if u.token === token
-        } yield u).firstOption
 
+      db withTransaction {
+        val user = userDao.getByToken(token)
         user match {
           case None => Ok (Json.arr())
           case Some(u) => {
-            val linkOpt = (for {
-              u <- User   if u.token === token
-              l <- Link   if l.code === code && l.url === url && l.userId === u.id
-              f <- Folder if f.id === folderId && l.folderId === f.id && l.userId === u.id
-            } yield l).firstOption
-
+            val linkOpt = linkDao.getBy(token, code, url, folderId)
             val link = linkOpt getOrElse {
-              val link = NewLink(None, u.id, folderId, url, code getOrElse S.generateCode)
-              val newId = Link.autoInc.insert(link)
-              (for (l <- Link if l.id === newId) yield l).first
+              val newLinkId = linkDao.create(u.id, folderId, url, code getOrElse S.generateCode)
+              linkDao.getById(newLinkId).get
             }
             Ok (Json.obj ("url" -> link.url, "code" -> link.code))
           }
@@ -82,20 +73,18 @@ object Application extends Controller {
   def postCode(code: String) = Action(parse.json) { request =>
     request.body.validate[(String, String)].map { case (referer, remoteIp) =>
       val stats = (request.body \ "stats").asOpt[String]
+
+      // add error check
       val ip = Try {
         InetAddress.getByName(remoteIp)
       }
       if (ip.isFailure) {
         BadRequest(Json.toJson(s"Ip address $remoteIp is not valid"))
       } else {
-        db withSession {
-          val link = (for {
-            l <- Link if l.code === code
-          } yield l).firstOption
-
+        db withTransaction {
+          val link = linkDao.getByCode(code)
           link map { l =>
-            Click.autoInc.insert(NewClick(
-              None, l.id, new Timestamp(System.currentTimeMillis()), referer, ip.get, stats))
+            clickDao.create(l.id, new Timestamp(System.currentTimeMillis()), referer, ip.get, stats)
             Ok(Json.toJson(l.url))
           } getOrElse {
             BadRequest(Json.toJson(s"Link $code not found"))
@@ -108,13 +97,8 @@ object Application extends Controller {
   }
 
   def getCode(code: String, token: String) = Action {
-    db withSession {
-      val link = (for {
-        u <- User   if u.token === token
-        l <- Link   if l.userId === u.id
-        f <- Folder if l.folderId == f.id && l.userId == u.id
-        c <- Click  if c.linkId == l.id
-      } yield (l, f.id, c.length)).list()
+    db withTransaction {
+      val link = linkDao.getByTokenWithExtra(token)
 
       val json = Json.toJson (
         link map { case (l: Link, folderId: Long, count: Int) =>
@@ -130,40 +114,30 @@ object Application extends Controller {
   }
 
   def getFolderId(id: Long, token: String, offset: Option[Int], limit: Option[String]) = Action {
-    db withSession {
-      val links = (for {
-        u <- User   if u.token === token
-        f <- Folder if f.id === id && f.userId === u.id
-        l <- Link   if l.userId === u.id && l.folderId === f.id
-      } yield l).list
+    db withTransaction {
+      val links = linkDao.getBy(token, id)
 
       val dropped = links drop (offset getOrElse 0)
-      val limited = Try(Integer parseInt (limit getOrElse "")) map (dropped.take) getOrElse dropped
+      val limited = Try(Integer parseInt (limit getOrElse "")) map dropped.take getOrElse dropped
 
       Ok(links2json(limited))
     }
   }
 
   def getLink(token: String, offset: Option[Int], limit: Option[String]) = Action {
-    db withSession {
-      val links = (for {
-        u <- User if u.token === token
-        l <- Link if l.userId === u.id
-      } yield l).list
+    db withTransaction {
+      val links = linkDao.getByToken(token)
 
       val dropped = links drop (offset getOrElse 0)
-      val limited = Try(Integer parseInt (limit getOrElse "")) map (dropped.take) getOrElse dropped
+      val limited = Try(Integer parseInt (limit getOrElse "")) map dropped.take getOrElse dropped
 
       Ok (links2json(limited))
     }
   }
 
   def getFolder(token: String) = Action {
-    db withSession {
-      val folders = (for {
-        u <- User   if u.token === token
-        f <- Folder if f.userId === u.id
-      } yield f).list
+    db withTransaction {
+      val folders = folderDao.getByToken(token)
 
       val json = Json.toJson (
         folders map { f: Folder =>
@@ -178,15 +152,11 @@ object Application extends Controller {
   }
 
   def getClicks(code: String, token: String, offset: Int, limit: String) = Action {
-    db withSession {
-      val clicks = ( for {
-        u <- User  if u.token === token
-        l <- Link  if l.userId === u.id
-        c <- Click if c.linkId === l.id
-      } yield c).list
+    db withTransaction {
+      val clicks = clickDao.getByToken(token)
 
       val dropped = clicks drop offset
-      val limited = Try (Integer parseInt limit) map (dropped.take) getOrElse dropped
+      val limited = Try (Integer parseInt limit) map dropped.take getOrElse dropped
 
       val json = Json.toJson (
         limited map { c: Click =>
