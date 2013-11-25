@@ -52,16 +52,24 @@ object Application extends Controller {
       val folderId = (request.body \ "folder_id").asOpt[Long]
 
       db withTransaction {
-        val user = userDao.getByToken(token)
-        user match {
-          case None => Ok (Json.arr())
-          case Some(u) => {
-            val linkOpt = linkDao.getBy(token, code, url, folderId)
-            val link = linkOpt getOrElse {
-              val newLinkId = linkDao.create(u.id, folderId, url, code getOrElse S.generateCode)
-              linkDao.getById(newLinkId).get
+        val folder = for {
+          fid <- folderId
+          f   <- folderDao.getById(fid)
+        } yield f
+        folder match {
+          case None    => BadRequest(Json.toJson(s"Folder with id $folderId doesn't exist"))
+          case Some(f) => {
+            userDao.getByToken(token) match {
+              case None    => Ok (Json.arr())
+              case Some(u) => {
+                val linkOpt = linkDao.getBy(token, code, url, folderId)
+                val link = linkOpt getOrElse {
+                  val newLinkId = linkDao.create(u.id, folderId, url, code getOrElse S.generateCode)
+                  linkDao.getById(newLinkId).get
+                }
+                Ok (Json.obj ("url" -> link.url, "code" -> link.code))
+              }
             }
-            Ok (Json.obj ("url" -> link.url, "code" -> link.code))
           }
         }
       }
