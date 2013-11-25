@@ -21,5 +21,11 @@ class ClickDao {
       c <- Click if c.linkId === l.id
     } yield c).list
   }
+
+  def countByLink(link: Link)(implicit session: Session) = {
+    ( for {
+      c <- Click if c.linkId === link.id
+    } yield c.length).first
+  }
 }
 

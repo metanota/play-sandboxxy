@@ -46,13 +46,4 @@ class LinkDao {
       l <- Link   if l.userId === u.id && l.folderId === f.id
     } yield l).list
   }
-
-  def getByTokenWithExtra(token: String)(implicit session: Session) = {
-    (for {
-      u <- User   if u.token === token
-      l <- Link   if l.userId === u.id
-      f <- Folder if l.folderId == f.id && l.userId == u.id
-      c <- Click  if c.linkId == l.id
-    } yield (l, f.id, c.length)).list()
-  }
 }

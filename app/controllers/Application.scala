@@ -98,14 +98,18 @@ object Application extends Controller {
 
   def getCode(code: String, token: String) = Action {
     db withTransaction {
-      val link = linkDao.getByTokenWithExtra(token)
+      val link   = linkDao getByCode code
+      val folder = link flatMap (l => folderDao getByLink   l)
+      val clicks = link map     (l => clickDao  countByLink l) getOrElse 0
+
+      val folderId = if (folder.isDefined) folder.get.id.toString else ""
 
       val json = Json.toJson (
-        link map { case (l: Link, folderId: Long, count: Int) =>
+        link map { l =>
           Json.obj (
             "link"            -> Json.obj( "url" -> l.url, "code" -> l.code ),
             "folder_id"       -> folderId,
-            "count_of_clicks" -> count
+            "count_of_clicks" -> clicks
           )
         }
       )

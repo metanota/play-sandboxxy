@@ -13,5 +13,17 @@ class FolderDao {
       f <- Folder if f.userId === u.id
     } yield f).list
   }
+
+  def getById(id: Long)(implicit session: Session) = {
+    (for {
+      f <- Folder if f.id === id
+    } yield f).firstOption
+  }
+
+  def getByLink(link: Link)(implicit session: Session) = {
+    (for {
+      f <- Folder if f.id === link.folderId
+    } yield f).firstOption
+  }
 }
 
