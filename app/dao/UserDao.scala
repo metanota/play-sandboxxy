@@ -4,18 +4,18 @@ import dto.User
 
 import scala.slick.driver.PostgresDriver.simple._
 
-class UserDao {
-  def create(token: String)(implicit session: Session) = {
+trait UserDao { this: SessionProvider =>
+  def create(token: String) = {
     User.autoInc.insert(token)
   }
 
-  def getById(id: Long)(implicit session: Session) = {
+  def getById(id: Long): Option[User] = {
     (for {
       u <- User if u.id === id
     } yield u).firstOption
   }
 
-  def getByToken(token: String)(implicit session: Session) = {
+  def getByToken(token: String): Option[User] = {
     (for {
       u <- User if u.token === token
     } yield u).firstOption

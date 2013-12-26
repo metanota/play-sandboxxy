@@ -12,19 +12,15 @@ import Database.threadLocalSession
 import dao._
 import dto._
 import utils.{Security => S}
-import scala.util.Try
 
 import java.net.InetAddress
 import java.sql.Timestamp
 
+import scala.util.Try
+
 object Application extends Controller {
 
   val db = Database.forDataSource(DB.getDataSource())
-
-  val clickDao  = new ClickDao
-  val folderDao = new FolderDao
-  val linkDao   = new LinkDao
-  val userDao   = new UserDao
 
   implicit val TwoStringsReader = (
     (__ \ 'token).read[String] and
@@ -36,10 +32,10 @@ object Application extends Controller {
       BadRequest(Json.toJson("User's secret doesn't fit :)"))
     }
     db withTransaction {
-      val user = userDao.getById(user_id)
+      val user = UserDao.getById(user_id)
       val token = user map (_.token) getOrElse {
         val token = S.generateToken
-        userDao.create(token)
+        UserDao.create(token)
         token
       }
       Ok(Json.toJson(token))
@@ -54,18 +50,18 @@ object Application extends Controller {
       db withTransaction {
         val folder = for {
           fid <- folderId
-          f   <- folderDao.getById(fid)
+          f   <- FolderDao.getById(fid)
         } yield f
         folder match {
           case None    => BadRequest(Json.toJson(s"Folder with id $folderId doesn't exist"))
           case Some(f) => {
-            userDao.getByToken(token) match {
+            UserDao.getByToken(token) match {
               case None    => Ok (Json.arr())
               case Some(u) => {
-                val linkOpt = linkDao.getBy(token, code, url, folderId)
+                val linkOpt = LinkDao.getBy(token, code, url, folderId)
                 val link = linkOpt getOrElse {
-                  val newLinkId = linkDao.create(u.id, folderId, url, code getOrElse S.generateCode)
-                  linkDao.getById(newLinkId).get
+                  val newLinkId = LinkDao.create(u.id, folderId, url, code getOrElse S.generateCode)
+                  LinkDao.getById(newLinkId).get
                 }
                 Ok (Json.obj ("url" -> link.url, "code" -> link.code))
               }
@@ -90,9 +86,9 @@ object Application extends Controller {
         BadRequest(Json.toJson(s"Ip address $remoteIp is not valid"))
       } else {
         db withTransaction {
-          val link = linkDao.getByCode(code)
+          val link = LinkDao.getByCode(code)
           link map { l =>
-            clickDao.create(l.id, new Timestamp(System.currentTimeMillis()), referer, ip.get, stats)
+            ClickDao.create(l.id, new Timestamp(System.currentTimeMillis()), referer, ip.get, stats)
             Ok(Json.toJson(l.url))
           } getOrElse {
             BadRequest(Json.toJson(s"Link $code not found"))
@@ -106,9 +102,9 @@ object Application extends Controller {
 
   def getCode(code: String, token: String) = Action {
     db withTransaction {
-      val link   = linkDao getByCode code
-      val folder = link flatMap (l => folderDao getByLink   l)
-      val clicks = link map     (l => clickDao  countByLink l) getOrElse 0
+      val link   = LinkDao getByCode code
+      val folder = link flatMap (l => FolderDao getByLink   l)
+      val clicks = link map     (l => ClickDao  countByLink l) getOrElse 0
 
       val folderId = if (folder.isDefined) folder.get.id.toString else ""
 
@@ -127,7 +123,7 @@ object Application extends Controller {
 
   def getFolderId(id: Long, token: String, offset: Option[Int], limit: Option[String]) = Action {
     db withTransaction {
-      val links = linkDao.getBy(token, id)
+      val links = LinkDao.getBy(token, id)
 
       val dropped = links drop (offset getOrElse 0)
       val limited = Try(Integer parseInt (limit getOrElse "")) map dropped.take getOrElse dropped
@@ -138,7 +134,7 @@ object Application extends Controller {
 
   def getLink(token: String, offset: Option[Int], limit: Option[String]) = Action {
     db withTransaction {
-      val links = linkDao.getByToken(token)
+      val links = LinkDao.getByToken(token)
 
       val dropped = links drop (offset getOrElse 0)
       val limited = Try(Integer parseInt (limit getOrElse "")) map dropped.take getOrElse dropped
@@ -149,7 +145,7 @@ object Application extends Controller {
 
   def getFolder(token: String) = Action {
     db withTransaction {
-      val folders = folderDao.getByToken(token)
+      val folders = FolderDao.getByToken(token)
 
       val json = Json.toJson (
         folders map { f: Folder =>
@@ -165,7 +161,7 @@ object Application extends Controller {
 
   def getClicks(code: String, token: String, offset: Int, limit: String) = Action {
     db withTransaction {
-      val clicks = clickDao.getByToken(token)
+      val clicks = ClickDao.getByToken(token)
 
       val dropped = clicks drop offset
       val limited = Try (Integer parseInt limit) map dropped.take getOrElse dropped
