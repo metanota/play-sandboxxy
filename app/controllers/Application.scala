@@ -33,11 +33,11 @@ object Application extends Controller {
     }
     db withTransaction {
       val user = UserDao.getById(user_id)
-      val token = user map (_.token) getOrElse {
+      val token = user.fold{
         val token = S.generateToken
         UserDao.create(token)
         token
-      }
+      }(_.token)
       Ok(Json.toJson(token))
     }
   }
@@ -87,11 +87,11 @@ object Application extends Controller {
       } else {
         db withTransaction {
           val link = LinkDao.getByCode(code)
-          link map { l =>
+          link.fold{
+            BadRequest(Json.toJson(s"Link $code not found"))
+          }{ l =>
             ClickDao.create(l.id, new Timestamp(System.currentTimeMillis()), referer, ip.get, stats)
             Ok(Json.toJson(l.url))
-          } getOrElse {
-            BadRequest(Json.toJson(s"Link $code not found"))
           }
         }
       }
@@ -104,7 +104,7 @@ object Application extends Controller {
     db withTransaction {
       val link   = LinkDao getByCode code
       val folder = link flatMap (l => FolderDao getByLink   l)
-      val clicks = link map     (l => ClickDao  countByLink l) getOrElse 0
+      val clicks = link.fold(0) (l => ClickDao  countByLink l)
 
       val folderId = if (folder.isDefined) folder.get.id.toString else ""
 
