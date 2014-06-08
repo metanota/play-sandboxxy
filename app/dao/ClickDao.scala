@@ -8,23 +8,23 @@ import java.net.InetAddress
 import java.sql.Timestamp
 
 trait ClickDao { this: SessionProvider =>
+  val clicks = Clicks.tableQuery
+  val links  = Links .tableQuery
+  val users  = Users .tableQuery
+
   def create(linkId: Int, dateTime: Timestamp, referer: String, ip: InetAddress, stats: Option[String]) = {
-    val click = NewClick(None, linkId, dateTime, referer, ip, stats)
-    Click.autoInc.insert(click)
+    (clicks returning clicks.map(_.id)) += Click(0, linkId, dateTime, referer, ip, stats)
   }
 
   def getByToken(userToken: String): List[Click] = {
     ( for {
-      u <- User  if u.token === userToken
-      l <- Link  if l.userId === u.id
-      c <- Click if c.linkId === l.id
+      u <- users  if u.token === userToken
+      l <- links  if l.userId === u.id
+      c <- clicks if c.linkId === l.id
     } yield c).list
   }
 
   def countByLink(link: Link): Int = {
-    ( for {
-      c <- Click if c.linkId === link.id
-    } yield c.length).first
+    clicks.where(_.linkId === link.id).length.run
   }
 }
-

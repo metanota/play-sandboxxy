@@ -7,7 +7,7 @@ import play.api.mvc._
 import play.api.Play.current
 
 import scala.slick.driver.PostgresDriver.simple._
-import Database.threadLocalSession
+import scala.slick.jdbc.JdbcBackend.Database.dynamicSession
 
 import dao._
 import dto._
@@ -31,7 +31,7 @@ object Application extends Controller {
     if (!S.authUser(secret)) {
       Unauthorized(Json.toJson("User's secret doesn't fit :)"))
     } else {
-      db withTransaction {
+      db withDynTransaction {
         val user = UserDao.getById(user_id)
         val token = user.fold {
           val token = S.generateToken
@@ -48,7 +48,7 @@ object Application extends Controller {
       val code     = (request.body \ "code")     .asOpt[String]
       val folderId = (request.body \ "folder_id").asOpt[Long]
 
-      db withTransaction {
+      db withDynTransaction {
         UserDao.getByToken(token) match {
           case None    => Unauthorized(Json.toJson(s"No user matches token $token"))
           case Some(u) =>
@@ -84,7 +84,7 @@ object Application extends Controller {
       if (ip.isFailure) {
         PreconditionFailed(Json.toJson(s"Ip address $remoteIp is not valid"))
       } else {
-        db withTransaction {
+        db withDynTransaction {
           val link = LinkDao.getByCode(code)
           link.fold{
             PreconditionFailed(Json.toJson(s"Link $code not found"))
@@ -100,10 +100,10 @@ object Application extends Controller {
   }
 
   def getCode(code: String, token: String) = Action {
-    db withTransaction {
+    db withDynTransaction {
       val link   = LinkDao getByCode code
       val folder = link flatMap (l => FolderDao getByLink   l)
-      val clicks = link.fold(0) (l => ClickDao  countByLink l)
+      val clicks = link.fold(0) (l => ClickDao  countByLink l).toString
 
       val folderId = if (folder.isDefined) folder.get.id.toString else ""
 
@@ -121,7 +121,7 @@ object Application extends Controller {
   }
 
   def getFolderId(id: Long, token: String, offset: Option[Int], limit: Option[String]) = Action {
-    db withTransaction {
+    db withDynTransaction {
       val links = LinkDao.getBy(token, id)
 
       val dropped = links drop (offset getOrElse 0)
@@ -132,7 +132,7 @@ object Application extends Controller {
   }
 
   def getLink(token: String, offset: Option[Int], limit: Option[String]) = Action {
-    db withTransaction {
+    db withDynTransaction {
       val links = LinkDao.getByToken(token)
 
       val dropped = links drop (offset getOrElse 0)
@@ -143,7 +143,7 @@ object Application extends Controller {
   }
 
   def getFolder(token: String) = Action {
-    db withTransaction {
+    db withDynTransaction {
       val folders = FolderDao.getByToken(token)
 
       val json = Json.toJson (
@@ -159,7 +159,7 @@ object Application extends Controller {
   }
 
   def getClicks(code: String, token: String, offset: Int, limit: String) = Action {
-    db withTransaction {
+    db withDynTransaction {
       val clicks = ClickDao.getByToken(token)
 
       val dropped = clicks drop offset

@@ -1,12 +1,12 @@
-import play.api.GlobalSettings
-import play.api.db.DB
-import scala.slick.driver.PostgresDriver.simple._
-import Database.threadLocalSession
+import dto._
 
 import play.api.Application
+import play.api.GlobalSettings
+import play.api.db.DB
 import play.api.Play.current
 
-import dto._
+import scala.slick.driver.PostgresDriver.simple._
+import scala.slick.jdbc.JdbcBackend.Database.dynamicSession
 import scala.slick.jdbc.meta.MTable
 
 /**
@@ -18,11 +18,11 @@ object Global extends GlobalSettings {
     lazy val database = Database.forDataSource(DB.getDataSource())
 
     // Probably there must be some version check
-    database withSession {
-      if (MTable.getTables("user_tbl").list().isEmpty)   User.ddl.create
-      if (MTable.getTables("folder")  .list().isEmpty) Folder.ddl.create
-      if (MTable.getTables("link")    .list().isEmpty)   Link.ddl.create
-      if (MTable.getTables("click")   .list().isEmpty)  Click.ddl.create
+    database withDynSession {
+      if (MTable.getTables("user_tbl").list().isEmpty)   Users.tableQuery.ddl.create
+      if (MTable.getTables("folder")  .list().isEmpty) Folders.tableQuery.ddl.create
+      if (MTable.getTables("link")    .list().isEmpty)   Links.tableQuery.ddl.create
+      if (MTable.getTables("click")   .list().isEmpty)  Clicks.tableQuery.ddl.create
     }
   }
 }

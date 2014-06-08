@@ -1,23 +1,21 @@
 package dao
 
-import dto.User
+import dto._
 
 import scala.slick.driver.PostgresDriver.simple._
 
 trait UserDao { this: SessionProvider =>
+  val users = Users.tableQuery
+
   def create(token: String) = {
-    User.autoInc.insert(token)
+    (users returning users.map(_.id)) += User(0, token)
   }
 
   def getById(id: Long): Option[User] = {
-    (for {
-      u <- User if u.id === id
-    } yield u).firstOption
+    users.where(_.id === id).firstOption
   }
 
   def getByToken(token: String): Option[User] = {
-    (for {
-      u <- User if u.token === token
-    } yield u).firstOption
+    users.where(_.token === token).firstOption
   }
 }
