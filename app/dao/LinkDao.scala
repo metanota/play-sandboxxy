@@ -13,9 +13,9 @@ trait LinkDao { this: SessionProvider =>
     (links returning links.map(_.id)) += Link(0, userId, folderId, linkUrl, linkCode)
   }
 
-  def createAndGet(userId: Long, folderId: Option[Long], linkUrl: String, linkCode: String) = {
+  def createAndGet(user: User, folderId: Option[Long], linkUrl: String, linkCode: String) = {
     (links returning links.map(_.id) into ((link, id) => link.copy(id = id))) +=
-      Link(0, userId, folderId, linkUrl, linkCode)
+      Link(0, user.id, folderId, linkUrl, linkCode)
   }
 
   def getById(id: Int): Option[Link] = {
@@ -33,11 +33,10 @@ trait LinkDao { this: SessionProvider =>
     links.where(_.code === code).firstOption
   }
 
-  def getBy(userToken: String, linkCode: Option[String], linkUrl: String, folderId: Option[Long]) : Option[Link] = {
+  def getBy(user: User, linkCode: Option[String], linkUrl: String, folderId: Option[Long]) : Option[Link] = {
     (for {
-      u <- users   if u.token === userToken
-      l <- links   if l.code === linkCode && l.url === linkUrl && l.userId === u.id
-      f <- folders if f.id === folderId && l.folderId === f.id && l.userId === u.id
+      l <- links   if l.code === linkCode && l.url === linkUrl && l.userId === user.id
+      f <- folders if f.id === folderId && l.folderId === f.id && l.userId === user.id
     } yield l).firstOption
   }
 

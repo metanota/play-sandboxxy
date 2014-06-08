@@ -50,26 +50,28 @@ object Application extends Controller {
 
       db withDynTransaction {
         UserDao.getByToken(token) match {
-          case None    => Unauthorized(Json.toJson(s"No user matches token $token"))
-          case Some(u) =>
-            val folder = for {
-              fid <- folderId
-              f   <- FolderDao.getById(fid)
-            } yield f
-            folder match {
-              case None => PreconditionFailed(Json.toJson(s"Folder with id $folderId doesn't exist"))
-              case Some(f) =>
-                val linkOpt = LinkDao.getBy(token, code, url, folderId)
-                val link = linkOpt getOrElse {
-                  LinkDao.createAndGet(u.id, folderId, url, code getOrElse S.generateCode)
+          case None       => Unauthorized(Json.toJson(s"No user matches token $token"))
+          case Some(user) =>
+            folderId match {
+              case None              => createLink(user, code, url, None)
+              case Some(reqFolderId) =>
+                FolderDao.getById(reqFolderId) match {
+                  case None    => PreconditionFailed(Json.toJson(s"Folder with id $reqFolderId doesn't exist"))
+                  case Some(f) => createLink(user, code, url, folderId)
                 }
-                Created(Json.obj("url" -> link.url, "code" -> link.code))
             }
         }
       }
     } recoverTotal {
       e => UnprocessableEntity("Detected error:" + JsError.toFlatJson(e))
     }
+  }
+
+  private [this] def createLink(user: User, code: Option[String], url: String, folder: Option[Long]): SimpleResult = {
+    val link = LinkDao.getBy(user, code, url, folder) getOrElse {
+      LinkDao.createAndGet(user, folder, url, code getOrElse S.generateCode)
+    }
+    Created(Json.obj("url" -> link.url, "code" -> link.code))
   }
 
   def postCode(code: String) = Action(parse.json) { request =>
