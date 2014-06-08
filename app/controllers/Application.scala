@@ -11,7 +11,7 @@ import Database.threadLocalSession
 
 import dao._
 import dto._
-import utils.{Security => S}
+import utils.{DummySecurity => S}
 
 import java.net.InetAddress
 import java.sql.Timestamp

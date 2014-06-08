@@ -3,7 +3,7 @@ package utils
 import java.security.SecureRandom
 import java.math.BigInteger
 
-object Security {
+object DummySecurity {
 
   private lazy val random = new SecureRandom()
 
