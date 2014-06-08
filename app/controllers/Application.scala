@@ -50,24 +50,22 @@ object Application extends Controller {
 
       db withTransaction {
         UserDao.getByToken(token) match {
-          case None    => Unauthorized(s"No user matches token $token")
-          case Some(u) => {
+          case None    => Unauthorized(Json.toJson(s"No user matches token $token"))
+          case Some(u) =>
             val folder = for {
               fid <- folderId
               f   <- FolderDao.getById(fid)
             } yield f
             folder match {
               case None => PreconditionFailed(Json.toJson(s"Folder with id $folderId doesn't exist"))
-              case Some(f) => {
+              case Some(f) =>
                 val linkOpt = LinkDao.getBy(token, code, url, folderId)
                 val link = linkOpt getOrElse {
                   val newLinkId = LinkDao.create(u.id, folderId, url, code getOrElse S.generateCode)
                   LinkDao.getById(newLinkId).get
                 }
                 Created(Json.obj("url" -> link.url, "code" -> link.code))
-              }
             }
-          }
         }
       }
     } recoverTotal {
