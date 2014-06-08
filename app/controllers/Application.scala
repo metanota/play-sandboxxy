@@ -76,7 +76,7 @@ object Application extends Controller {
   }
 
   def postCode(code: String) = Action(parse.json) { request =>
-    request.body.validate[(String, String)].map { case (referrer, remoteIp) =>
+    request.body.validate[(String, String)].map { case (referer, remoteIp) =>
       val stats = (request.body \ "stats").asOpt[String]
 
       // add error check
@@ -91,7 +91,7 @@ object Application extends Controller {
           link.fold{
             PreconditionFailed(Json.toJson(s"Link $code not found"))
           }{ l =>
-            ClickDao.create(l.id, new Timestamp(System.currentTimeMillis()), referrer, ip.get, stats)
+            ClickDao.create(l.id, new Timestamp(System.currentTimeMillis()), referer, ip.get, stats)
             Created(Json.toJson(l.url))
           }
         }
