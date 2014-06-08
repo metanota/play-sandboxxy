@@ -13,6 +13,11 @@ trait LinkDao { this: SessionProvider =>
     (links returning links.map(_.id)) += Link(0, userId, folderId, linkUrl, linkCode)
   }
 
+  def createAndGet(userId: Long, folderId: Option[Long], linkUrl: String, linkCode: String) = {
+    (links returning links.map(_.id) into ((link, id) => link.copy(id = id))) +=
+      Link(0, userId, folderId, linkUrl, linkCode)
+  }
+
   def getById(id: Int): Option[Link] = {
     links.where(_.id === id).firstOption
   }

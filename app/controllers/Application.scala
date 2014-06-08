@@ -61,8 +61,7 @@ object Application extends Controller {
               case Some(f) =>
                 val linkOpt = LinkDao.getBy(token, code, url, folderId)
                 val link = linkOpt getOrElse {
-                  val newLinkId = LinkDao.create(u.id, folderId, url, code getOrElse S.generateCode)
-                  LinkDao.getById(newLinkId).get
+                  LinkDao.createAndGet(u.id, folderId, url, code getOrElse S.generateCode)
                 }
                 Created(Json.obj("url" -> link.url, "code" -> link.code))
             }
