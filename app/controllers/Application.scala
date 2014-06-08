@@ -29,16 +29,17 @@ object Application extends Controller {
 
   def token(user_id: Long, secret: String) = Action {
     if (!S.authUser(secret)) {
-      BadRequest(Json.toJson("User's secret doesn't fit :)"))
-    }
-    db withTransaction {
-      val user = UserDao.getById(user_id)
-      val token = user.fold{
-        val token = S.generateToken
-        UserDao.create(token)
-        token
-      }(_.token)
-      Ok(Json.toJson(token))
+      Unauthorized(Json.toJson("User's secret doesn't fit :)"))
+    } else {
+      db withTransaction {
+        val user = UserDao.getById(user_id)
+        val token = user.fold {
+          val token = S.generateToken
+          UserDao.create(token)
+          token
+        }(_.token)
+        Ok(Json.toJson(token))
+      }
     }
   }
 
@@ -48,34 +49,34 @@ object Application extends Controller {
       val folderId = (request.body \ "folder_id").asOpt[Long]
 
       db withTransaction {
-        val folder = for {
-          fid <- folderId
-          f   <- FolderDao.getById(fid)
-        } yield f
-        folder match {
-          case None    => BadRequest(Json.toJson(s"Folder with id $folderId doesn't exist"))
-          case Some(f) => {
-            UserDao.getByToken(token) match {
-              case None    => Ok (Json.arr())
-              case Some(u) => {
+        UserDao.getByToken(token) match {
+          case None    => Unauthorized(s"No user matches token $token")
+          case Some(u) => {
+            val folder = for {
+              fid <- folderId
+              f   <- FolderDao.getById(fid)
+            } yield f
+            folder match {
+              case None => PreconditionFailed(Json.toJson(s"Folder with id $folderId doesn't exist"))
+              case Some(f) => {
                 val linkOpt = LinkDao.getBy(token, code, url, folderId)
                 val link = linkOpt getOrElse {
                   val newLinkId = LinkDao.create(u.id, folderId, url, code getOrElse S.generateCode)
                   LinkDao.getById(newLinkId).get
                 }
-                Ok (Json.obj ("url" -> link.url, "code" -> link.code))
+                Created(Json.obj("url" -> link.url, "code" -> link.code))
               }
             }
           }
         }
       }
     } recoverTotal {
-      e => BadRequest("Detected error:" + JsError.toFlatJson(e))
+      e => UnprocessableEntity("Detected error:" + JsError.toFlatJson(e))
     }
   }
 
   def postCode(code: String) = Action(parse.json) { request =>
-    request.body.validate[(String, String)].map { case (referer, remoteIp) =>
+    request.body.validate[(String, String)].map { case (referrer, remoteIp) =>
       val stats = (request.body \ "stats").asOpt[String]
 
       // add error check
@@ -83,20 +84,20 @@ object Application extends Controller {
         InetAddress.getByName(remoteIp)
       }
       if (ip.isFailure) {
-        BadRequest(Json.toJson(s"Ip address $remoteIp is not valid"))
+        PreconditionFailed(Json.toJson(s"Ip address $remoteIp is not valid"))
       } else {
         db withTransaction {
           val link = LinkDao.getByCode(code)
           link.fold{
-            BadRequest(Json.toJson(s"Link $code not found"))
+            PreconditionFailed(Json.toJson(s"Link $code not found"))
           }{ l =>
-            ClickDao.create(l.id, new Timestamp(System.currentTimeMillis()), referer, ip.get, stats)
-            Ok(Json.toJson(l.url))
+            ClickDao.create(l.id, new Timestamp(System.currentTimeMillis()), referrer, ip.get, stats)
+            Created(Json.toJson(l.url))
           }
         }
       }
     } recoverTotal {
-      e => BadRequest("Detected error:" + JsError.toFlatJson(e))
+      e => UnprocessableEntity("Detected error:" + JsError.toFlatJson(e))
     }
   }
 
@@ -149,7 +150,7 @@ object Application extends Controller {
 
       val json = Json.toJson (
         folders map { f: Folder =>
-          Json.obj(
+          Json.obj (
             "id"    -> f.id,
             "title" -> f.title
           )
@@ -179,7 +180,7 @@ object Application extends Controller {
     }
   }
 
-  def links2json(links: List[Link]) = Json.toJson (
+  private [this] def links2json(links: List[Link]) = Json.toJson (
     links map { l: Link =>
       Json.obj (
         "url"  -> l.url,
