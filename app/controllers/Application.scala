@@ -33,11 +33,11 @@ object Application extends Controller {
     } else {
       db withDynTransaction {
         val user = UserDao.getById(user_id)
-        val token = user.fold {
+        val token = user map ( _.token ) getOrElse {
           val token = S.generateToken
           UserDao.create(token)
           token
-        }(_.token)
+        }
         Ok(Json.toJson(token))
       }
     }
@@ -87,11 +87,11 @@ object Application extends Controller {
       } else {
         db withDynTransaction {
           val link = LinkDao.getByCode(code)
-          link.fold{
-            PreconditionFailed(Json.toJson(s"Link $code not found"))
-          }{ l =>
+          link map { l =>
             ClickDao.create(l.id, new Timestamp(System.currentTimeMillis()), referer, ip.get, stats)
             Created(Json.toJson(l.url))
+          } getOrElse {
+            PreconditionFailed(Json.toJson(s"Link $code not found"))
           }
         }
       }
