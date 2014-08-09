@@ -25,6 +25,6 @@ trait ClickDao { this: SessionProvider =>
   }
 
   def countByLink(link: Link): Int = {
-    clicks.where(_.linkId === link.id).length.run
+    clicks.filter(_.linkId === link.id).length.run
   }
 }

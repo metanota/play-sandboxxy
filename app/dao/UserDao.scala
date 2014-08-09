@@ -12,10 +12,10 @@ trait UserDao { this: SessionProvider =>
   }
 
   def getById(id: Long): Option[User] = {
-    users.where(_.id === id).firstOption
+    users.filter(_.id === id).firstOption
   }
 
   def getByToken(token: String): Option[User] = {
-    users.where(_.token === token).firstOption
+    users.filter(_.token === token).firstOption
   }
 }

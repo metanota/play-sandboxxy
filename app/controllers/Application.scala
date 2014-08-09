@@ -67,7 +67,7 @@ object Application extends Controller {
     }
   }
 
-  private [this] def createLink(user: User, code: Option[String], url: String, folder: Option[Long]): SimpleResult = {
+  private [this] def createLink(user: User, code: Option[String], url: String, folder: Option[Long]): Result = {
     val link = LinkDao.getBy(user, code, url, folder) getOrElse {
       LinkDao.createAndGet(user, folder, url, code getOrElse S.generateCode)
     }

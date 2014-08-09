@@ -19,7 +19,7 @@ trait LinkDao { this: SessionProvider =>
   }
 
   def getById(id: Int): Option[Link] = {
-    links.where(_.id === id).firstOption
+    links.filter(_.id === id).firstOption
   }
 
   def getByToken(token: String): List[Link] = {
@@ -30,7 +30,7 @@ trait LinkDao { this: SessionProvider =>
   }
 
   def getByCode(code: String): Option[Link] = {
-    links.where(_.code === code).firstOption
+    links.filter(_.code === code).firstOption
   }
 
   def getBy(user: User, linkCode: Option[String], linkUrl: String, folderId: Option[Long]) : Option[Link] = {

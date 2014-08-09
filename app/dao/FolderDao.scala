@@ -18,10 +18,10 @@ trait FolderDao { this: SessionProvider =>
   }
 
   def getById(id: Long): Option[Folder] = {
-    folder.where(_.id === id).firstOption
+    folder.filter(_.id === id).firstOption
   }
 
   def getByLink(link: Link): Option[Folder] = {
-    folder.where(_.id === link.folderId).firstOption
+    folder.filter(_.id === link.folderId).firstOption
   }
 }

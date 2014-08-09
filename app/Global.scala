@@ -19,10 +19,10 @@ object Global extends GlobalSettings {
 
     // Probably there must be some version check
     database withDynSession {
-      if (MTable.getTables("user_tbl").list().isEmpty)   Users.tableQuery.ddl.create
-      if (MTable.getTables("folder")  .list().isEmpty) Folders.tableQuery.ddl.create
-      if (MTable.getTables("link")    .list().isEmpty)   Links.tableQuery.ddl.create
-      if (MTable.getTables("click")   .list().isEmpty)  Clicks.tableQuery.ddl.create
+      if (MTable.getTables("user_tbl").list.isEmpty)   Users.tableQuery.ddl.create
+      if (MTable.getTables("folder")  .list.isEmpty) Folders.tableQuery.ddl.create
+      if (MTable.getTables("link")    .list.isEmpty)   Links.tableQuery.ddl.create
+      if (MTable.getTables("click")   .list.isEmpty)  Clicks.tableQuery.ddl.create
     }
   }
 }
